@@ -1,0 +1,87 @@
+name: Build Full HandBrake Suite
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-core:
+    name: Compile LibHB & HandBrakeCLI (MinGW)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          repository: HandBrake/HandBrake
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Cross-Compilation Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake autopoint build-essential cmake curl git \
+            intltool libtool libtool-bin m4 make nasm ninja-build patch \
+            pkg-config python3 tar yasm zlib1g-dev \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+
+      - name: Configure & Compile Core
+        run: |
+          ./configure --cross=x86_64-w64-mingw32 --prefix=dist --launch-jobs=$(nproc) --lto on --launch
+          make -C build
+
+      - name: Upload Core Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-binaries
+          path: |
+            build/HandBrakeCLI.exe
+            build/libhb/hb.dll
+          retention-days: 1
+
+  build-gui:
+    name: Build GUI & Bundle Portable Package (VS / .NET)
+    needs: build-core
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          repository: HandBrake/HandBrake
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Download Compiled Core
+        uses: actions/download-artifact@v4
+        with:
+          name: core-binaries
+          path: core-dist
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Self-Contained WPF Application
+        shell: pwsh
+        run: |
+          # 1. Publish all .NET GUI dependencies into a single deployment folder
+          dotnet publish win/CS/HandBrakeWPF/HandBrakeWPF.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o package
+
+          # 2. Place hb.dll and HandBrakeCLI.exe directly beside HandBrake.exe
+          Copy-Item -Path "core-dist/hb.dll" -Destination "package/" -Force
+          Copy-Item -Path "core-dist/HandBrakeCLI.exe" -Destination "package/" -Force
+
+          # 3. Create ready-to-run ZIP archive
+          Compress-Archive -Path "package/*" -DestinationPath "HandBrake-x64-Portable.zip" -Force
+
+      - name: Upload Complete Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandBrake-x64-Complete
+          path: HandBrake-x64-Portable.zip
