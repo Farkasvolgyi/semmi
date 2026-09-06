@@ -23,7 +23,7 @@ jobs:
           sudo apt-get install -y \
             autoconf automake autopoint build-essential cmake curl git \
             intltool libtool libtool-bin m4 make nasm ninja-build patch \
-            pkg-config python3 tar yasm zlib1g-dev \
+            meson pkg-config python3 tar yasm zlib1g-dev \
             gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
 
       - name: Configure & Compile Core
