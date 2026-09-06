@@ -25,6 +25,8 @@ jobs:
             intltool libtool libtool-bin m4 make nasm ninja-build patch \
             meson pkg-config python3 tar yasm zlib1g-dev \
             gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
       - name: Configure & Compile Core
         run: |
